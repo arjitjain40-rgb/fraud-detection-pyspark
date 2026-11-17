@@ -1,0 +1,9 @@
+{
+    "weights": {
+        "Random Forest": 0.2625398413667964,
+        "Gradient-Boosted Trees": 0.2633239041866836,
+        "Weighted Logistic Regression": 0.24759945668721223,
+        "Decision Tree": 0.22653679775930782
+    },
+    "threshold": 0.24
+}

@@ -1,0 +1,34 @@
+# Virtual Environments
+.venv/
+.venv*/
+env/
+venv/
+
+# Bytecode & Caches
+__pycache__/
+*.pyc
+*.pyo
+
+# Datasets (creditcard.csv is ~150MB, exceeding GitHub's 100MB limit)
+data/creditcard.csv
+data/*.zip
+
+# Spark Streaming checkpoints and live stream files
+data/stream_checkpoint/
+data/stream_input/
+data/stream_alerts/
+
+# Spark / Hadoop runtime logs
+*.log
+spark-warehouse/
+derby.log
+metastore_db/
+
+# Temporary test folders
+models/persistence_test/
+
+# OS / Editor files
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
