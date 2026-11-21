@@ -2,7 +2,7 @@
 
 An enterprise-grade, distributed credit card fraud detection system built using **Apache Spark (PySpark MLlib)**, **Spark Structured Streaming**, and **Power BI**. 
 
-The system handles extreme class imbalance (0.172% fraud incidence) through cost-sensitive class weighting, employs a performance-weighted ensemble (combining PR-AUC and ROC-AUC metrics), tunes classification thresholds under real-world business constraints ($\ge 85\%$ recall), and supports both offline batch analytics and real-time streaming inference.
+The system handles extreme class imbalance (0.172% fraud incidence) through cost-sensitive class weighting, employs a performance-weighted ensemble (combining PR-AUC and ROC-AUC metrics), tunes classification thresholds under real-world business constraints ($\ge 85\%$ recall), and features an authentic **Real-Time Streaming Cockpit** and **Blind Test-Set Explorer** for live evaluation.
 
 ---
 
@@ -15,7 +15,7 @@ The system handles extreme class imbalance (0.172% fraud incidence) through cost
        ┌───────────────────────────────┐
        │     PySpark Data Loader       │
        │   - Deduplication (1,081 rows)│
-       │   - Schema Ingestion          │
+       │   - Multi-core Engine (12 CPU)│
        └───────────────┬───────────────┘
                        │
                        ▼
@@ -43,13 +43,13 @@ The system handles extreme class imbalance (0.172% fraud incidence) through cost
        │ - Automated Model Persistence │
        └───────────────┬───────────────┘
                        │
-         ┌─────────────┴─────────────┐
-         ▼                           ▼
-┌──────────────────┐       ┌──────────────────────┐
-│  Batch Scoring   │       │ Structured Streaming │
-│- Enriched CSV    │       │- Micro-batch scoring │
-│- Power BI (.pbix)│       │- Real-time alerts    │
-└──────────────────┘       └──────────────────────┘
+         ┌─────────────┼─────────────────────────────┐
+         ▼             ▼                             ▼
+┌────────────────┐ ┌──────────────────────┐ ┌───────────────────────────┐
+│  Batch Scoring │ │ Structured Streaming │ │  Real-Time Web Cockpit    │
+│- Enriched CSV  │ │- Micro-batch scoring │ │- Live Payment Stream Feed │
+│- Power BI Dash │ │- Real-time alerts    │ │- Blind Test Explorer      │
+└────────────────┘ └──────────────────────┘ └───────────────────────────┘
 ```
 
 ---
@@ -80,16 +80,17 @@ The system handles extreme class imbalance (0.172% fraud incidence) through cost
 ## 💡 Key Engineering Highlights
 
 1. **Solving Extreme Class Imbalance:**
-   - Fraud represents only 492 out of 284,807 transactions.
-   - Traditional classifiers default to predicting the majority class. Using inverse class weighting (`legitimate_count / fraud_count`) for Logistic Regression forced the optimizer to prioritize minority class detection.
+   - Fraud represents only 492 out of 284,807 transactions (0.172%).
+   - Traditional classifiers default to guessing 'legitimate' 99.8% of the time. Using inverse frequency weighting (`classWeight = legitimate / fraud`) on Logistic Regression forced the optimizer to heavily penalize fraud errors, achieving **92.59% validation recall**.
 2. **Business-Constrained Threshold Optimization:**
-   - In fraud detection, missing a fraud case (False Negative) is exponentially more expensive than reviewing a legitimate transaction (False Positive).
-   - The threshold is tuned on validation data with a hard constraint of $\ge 85\%$ recall, picking the threshold that maximizes precision under that boundary.
+   - Missing a fraudulent charge (False Negative) is exponentially more expensive to banks than verifying a false alarm (False Positive).
+   - The decision threshold was tuned against validation data with a business constraint of $\ge 85\%$ recall, identifying **0.24** as the optimal operational boundary.
 3. **Model Persistence & Instant Inference:**
-   - Models are serialized to disk (`models/`) along with ensemble weights and optimal threshold (`ensemble_config.json`).
-   - Subsequent executions load in **under 20 seconds** instead of minutes of re-training.
-4. **Enriched Reporting for Power BI:**
-   - Export preserves `Time` and `Amount` alongside predictions and risk tiers (*Low*, *Medium*, *High*, *Critical*), allowing financial impact dashboards (*Total Dollars Saved* vs *Friction Cost*).
+   - All 4 Spark ML models and the ensemble configuration (`weights`, `threshold`) are serialized to disk (`models/`).
+   - Subsequent executions load pre-trained models from disk in **under 20 seconds**, completely eliminating repetitive re-training.
+4. **Live Stream Engine & Blind Test Verification:**
+   - Supports continuous micro-batch streaming with real-time financial telemetry ($ Cleared vs $ Prevented).
+   - Features a Blind Test Explorer that allows testing raw 30-dimensional vectors with zero label knowledge, proving models are genuinely predicting without hardcoding.
 
 ---
 
@@ -100,26 +101,35 @@ The system handles extreme class imbalance (0.172% fraud incidence) through cost
 - Java 17 (JDK)
 - Python 3.10–3.14 with virtual environment
 
-Activate environment:
+Activate environment and install dependencies:
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-### 2. Run Batch Pipeline
+### 2. Run Batch Scoring Pipeline
 ```powershell
 .\.venv\Scripts\python.exe main.py
 ```
-- First run trains and persists models to `models/`.
-- Subsequent runs load models instantly and score test data into `ensemble_risk_predictions.csv`.
+- Automatically checks for saved models in `models/`.
+- Loads the models instantly, evaluates 56,000+ test transactions in ~20 seconds, and writes enriched outputs to `ensemble_risk_predictions.csv`.
 
-### 3. Run Web Application (Interactive Presentation UI)
+### 3. Run Real-Time Web Application (Interactive Dashboard)
 ```powershell
 .\.venv\Scripts\python.exe web_app.py
 ```
-- Opens a modern browser dashboard at `http://127.0.0.1:5000`.
-- Allows 1-click testing of live fraud scenarios, custom transaction amounts, real-time risk gauges, multi-model voting breakdowns, and audit history.
+*(Or double-click `run_web_app.bat` on Windows)*.
+- Automatically launches your browser at `http://127.0.0.1:5000`.
+- **Mode 1 (Real-Time Stream Cockpit):** Stream incoming transactions automatically every 1.4s, view live telemetry ($ Cleared vs $ Prevented), and click "Inject Fraud Attack" to observe spontaneous real-time intercepts.
+- **Mode 2 (Blind Test Explorer):** Pick any unlabeled transaction ID at random, run model inference blind, and reveal dataset ground truth to prove zero hardcoded logic.
 
-### 4. Run Real-Time Streaming Detection
+### 4. Run CLI Interactive Demo
+```powershell
+.\.venv\Scripts\python.exe predict_interactive.py
+```
+*(Or double-click `run_cli_demo.bat` on Windows)*.
+- Interactive terminal menu for quick evaluator demos.
+
+### 5. Run Spark Structured Streaming Engine
 Open two terminal windows:
 
 **Terminal 1 (Start Streaming Detector):**
@@ -131,8 +141,9 @@ Open two terminal windows:
 ```powershell
 .\.venv\Scripts\python.exe -m src.stream_producer
 ```
-You will observe live micro-batches being ingested and flagged in real-time as high-risk alerts.
+Ingests streaming micro-batches and exports high-risk alerts to `data/stream_alerts/`.
 
-### 4. Power BI Dashboard
+### 6. Power BI Dashboard
 - Open `Fraud_Detection.pbix` in Power BI Desktop.
-- Click **Home > Refresh** to pull in the enriched dataset.
+- Click **Home > Refresh** to update with newly scored transactions.
+- Visualize financial loss prevention, operational review queues, and risk tier distributions (*Low*, *Medium*, *High*, *Critical*).
